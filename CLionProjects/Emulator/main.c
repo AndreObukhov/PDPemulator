@@ -1,9 +1,22 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <assert.h>
 
 typedef unsigned char byte;
 typedef unsigned short int word;
 typedef word adr;
+
+struct Command {
+    word opcode;
+    word mask;
+    char * name;
+    void (*func)();
+} commands[] = {
+        {0,       0177777, "halt", do_halt},   //0xFFFF
+        {0010000, 0170000, "mov",  do_mov},
+        {0060000, 0170000, "add",  do_add},
+        //{?, ?, "unknown", do_unknown}  //MUST BE THE LAST
+};
 
 byte mem[64*1024];
 
@@ -33,13 +46,53 @@ word w_read (adr a) {
     return w;
 }
 
-void load_file() {
-    FILE *f = stdin;
+void run(adr pc0){
+    adr pc = pc0;
+    int i;
+    while (1) {
+        word w = w_read(pc);
+        printf("%06o:%06o ", pc, w);
+        pc += 2;
+        for (i = 0; ;i ++) {
+            struct Command cmd = commands[i];
+            if ((w & cmd.mask) == cmd.opcode) {
+                printf("%s ", cmd.name);
+                cmd.func();
+            }
+        }
+
+    }
+}
+
+void do_halt() {
+    printf("THE END\n");
+    exit(0);
+}
+
+void do_add() {
+    printf("ADD\n");
+}
+
+void do_mov() {
+    printf("MOV\n");
+}
+
+void do_unknown() {
+    printf("UNKNOWN\n");
+}
+
+void load_file() {    //доделать до полноценной работы с файлами
     unsigned int address;
     unsigned int n;
     unsigned int x;
     unsigned int i = 0;
-    while(fscanf(f, "%x%x", &address, &n) == 2)
+    FILE *f = stdin;
+    //f = fopen(file, "r");
+    //if (f == NULL) {
+    //      perror("file");
+    //      exit(1);
+    //}
+    while (fscanf(f, "%x%x", &address, &n) == 2)
     {
         for(i = 0; i < n; i ++)
         {
@@ -47,6 +100,7 @@ void load_file() {
             b_write(address + i, x);
         }
     }
+    //fclose(f);
 }
 
 void mem_dump(adr start, word n) {
@@ -83,5 +137,7 @@ void testmem(){
 
 int main() {
     testmem();
+    load_file();
+    run(01000);
     return 0;
 }
